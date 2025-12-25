@@ -308,25 +308,25 @@ typedef void stack_t;		// placeholder
 /* Cache lua_State* stack captured from interpreter entry per thread (key: tid, value: struct lua_state_cache_t).
  * Memory: LUA_TSTATE_ENTRIES(65536) * (key 4B + value 72B + hash header) -> roughly a few MB worst case.
  */
-MAP_HASH(lua_tstate_map, __u32, struct lua_state_cache_t, LUA_TSTATE_ENTRIES, FEATURE_FLAG_PROFILE_ONCPU)
+MAP_HASH(lua_tstate_map, __u32, struct lua_state_cache_t, LUA_TSTATE_ENTRIES, FEATURE_FLAG_PROFILE_LUA)
 /* Records which Lua runtime a process uses (key: tgid, value: LANG_* bitmask).
  * Memory: LUA_TSTATE_ENTRIES(65536) * (key 4B + value 4B + hash header) -> roughly sub‑MB.
  */
-MAP_HASH(lang_flags_map, __u32, __u32, LUA_TSTATE_ENTRIES, FEATURE_FLAG_PROFILE_ONCPU)
+MAP_HASH(lua_lang_flags_map, __u32, __u32, LUA_TSTATE_ENTRIES, FEATURE_FLAG_PROFILE_LUA)
 /* Per-process Lua unwinding metadata (key: tgid, value: lua_unwind_info_t).
  * Memory: LUA_TSTATE_ENTRIES(65536) * (key 4B + value 16B + hash header) -> roughly low MB.
  */
-MAP_HASH(lua_unwind_info_map, __u32, lua_unwind_info_t, LUA_TSTATE_ENTRIES, FEATURE_FLAG_PROFILE_ONCPU)
+MAP_HASH(lua_unwind_info_map, __u32, lua_unwind_info_t, LUA_TSTATE_ENTRIES, FEATURE_FLAG_PROFILE_LUA)
 /* Lua 5.x structure layout descriptions indexed by offsets id (key: id, value: lua_ofs).
  * Memory: up to LUA_OFFSET_PROFILES(8) * (key 4B + value ~92B + hash header) -> about a few KB kernel memory.
  * Arch: map is generic; values currently reflect arm64 layouts. x86_64 support is provided by loading x86 offsets from userspace.
  */
-MAP_HASH(lua_offsets_map, __u32, lua_ofs, LUA_OFFSET_PROFILES, FEATURE_FLAG_PROFILE_ONCPU)
+MAP_HASH(lua_offsets_map, __u32, lua_ofs, LUA_OFFSET_PROFILES, FEATURE_FLAG_PROFILE_LUA)
 /* LuaJIT structure layout descriptions indexed by offsets id (key: id, value: lj_ofs).
  * Memory: up to LUA_OFFSET_PROFILES(8) * (key 4B + value ~56B + hash header) -> about a few KB kernel memory.
  * Arch: map is generic; values mirror the arch provided by userspace (currently AArch64/GC64; load GC32/x86_64 offsets from userspace when supported).
  */
-MAP_HASH(luajit_offsets_map, __u32, lj_ofs, LUA_OFFSET_PROFILES, FEATURE_FLAG_PROFILE_ONCPU)
+MAP_HASH(luajit_offsets_map, __u32, lj_ofs, LUA_OFFSET_PROFILES, FEATURE_FLAG_PROFILE_LUA)
 
 static inline __attribute__ ((always_inline))
 __u64 lua_state_slot_read(const struct lua_state_cache_t *cache, __u8 idx)
@@ -911,7 +911,7 @@ PERF_EVENT_PROG(oncpu_profile) (struct bpf_perf_event_data * ctx) {
 		pre_python_unwind(ctx, state, &oncpu_maps, PROG_PYTHON_UNWIND_PE_IDX);
 	}
 
-	__u32 *flags = lang_flags_map__lookup(&key->tgid);
+	__u32 *flags = lua_lang_flags_map__lookup(&key->tgid);
 	if (flags && (*flags & (LANG_LUA | LANG_LUAJIT))) {
 		state->lua_is_jit = (*flags & LANG_LUAJIT) ? 1 : 0;
 
